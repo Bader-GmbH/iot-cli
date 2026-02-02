@@ -57,6 +57,8 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("X-Tenant-ID", tenantID)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "iot-cli/1.0")
+	req.Header.Set("X-Client-Type", "cli")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
