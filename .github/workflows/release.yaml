@@ -1,0 +1,190 @@
+name: Build and Release CLI
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+env:
+  AWS_REGION: eu-central-1
+  S3_BUCKET: ${{ secrets.CLI_RELEASES_BUCKET }}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            suffix: ''
+          - os: linux
+            arch: arm64
+            suffix: ''
+          - os: darwin
+            arch: amd64
+            suffix: ''
+          - os: darwin
+            arch: arm64
+            suffix: ''
+          - os: windows
+            arch: amd64
+            suffix: '.exe'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=${{ github.event.inputs.version }}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          COMMIT=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          OUTPUT_NAME="iot-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}"
+
+          LDFLAGS="-s -w -X github.com/Bader-GmbH/iot-cli/cmd.Version=v${VERSION} -X github.com/Bader-GmbH/iot-cli/cmd.Commit=${COMMIT} -X github.com/Bader-GmbH/iot-cli/cmd.BuildDate=${BUILD_DATE}"
+
+          go build \
+            -ldflags="${LDFLAGS}" \
+            -o "$OUTPUT_NAME" \
+            .
+
+          # Create checksum
+          sha256sum "$OUTPUT_NAME" > "$OUTPUT_NAME.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iot-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            iot-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}
+            iot-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}.sha256
+
+  release:
+    name: Release to S3
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=${{ github.event.inputs.version }}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.CLI_RELEASES_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.CLI_RELEASES_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload to S3
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+
+          # Create version directory structure
+          mkdir -p release/v$VERSION
+          mkdir -p release/latest
+
+          # Move binaries to release directory (exclude checksums for S3)
+          for dir in artifacts/iot-*; do
+            for file in "$dir"/iot-*; do
+              if [[ ! "$file" == *.sha256 ]]; then
+                filename=$(basename "$file")
+                cp "$file" "release/v$VERSION/$filename"
+                cp "$file" "release/latest/$filename"
+              fi
+            done
+          done
+
+          # Upload to S3 (no --delete to preserve old versions)
+          aws s3 sync release/ s3://$S3_BUCKET/ \
+            --cache-control "max-age=3600"
+
+          echo "Uploaded binaries to s3://$S3_BUCKET/v$VERSION/"
+          echo "Uploaded binaries to s3://$S3_BUCKET/latest/"
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v1
+        with:
+          name: v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
+          generate_release_notes: true
+          files: |
+            artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**S3 Bucket:** $S3_BUCKET" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Install Command:**" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo 'curl -fsSL https://api.iot.bader.solutions/api/releases/cli/install.sh | bash' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  # Optional: Update Homebrew tap
+  homebrew:
+    name: Update Homebrew
+    needs: release
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && !contains(github.ref, '-rc') && !contains(github.ref, '-beta') && !contains(github.ref, '-alpha') }}
+    steps:
+      - name: Update Homebrew formula
+        uses: dawidd6/action-homebrew-bump-formula@v3
+        continue-on-error: true  # Don't fail release if Homebrew update fails
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          tap: bader-solutions/tap
+          formula: iot
+          tag: ${{ github.ref_name }}
