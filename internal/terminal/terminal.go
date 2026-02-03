@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/gorilla/websocket"
@@ -16,12 +17,10 @@ import (
 
 // Session manages a terminal session over WebSocket
 type Session struct {
-	conn        *websocket.Conn
-	sessionID   string
-	accessToken string
-	tenantID    string
-	done        chan struct{}
-	oldState    *term.State
+	conn      *websocket.Conn
+	sessionID string
+	done      chan struct{}
+	oldState  *term.State
 }
 
 // Connect establishes a WebSocket connection to the terminal session
@@ -48,11 +47,9 @@ func Connect(ctx context.Context, baseURL, sessionID, accessToken, tenantID stri
 	}
 
 	return &Session{
-		conn:        conn,
-		sessionID:   sessionID,
-		accessToken: accessToken,
-		tenantID:    tenantID,
-		done:        make(chan struct{}),
+		conn:      conn,
+		sessionID: sessionID,
+		done:      make(chan struct{}),
 	}, nil
 }
 
@@ -95,14 +92,14 @@ func (s *Session) Run() error {
 
 	// Handle Ctrl+C and other signals
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigChan
 		s.Close()
 	}()
 
-	// Handle window size changes
-	go s.handleResize()
+	// Handle window size changes (Unix only)
+	s.setupResizeHandler()
 
 	// Send initial terminal size
 	s.sendSize()
@@ -135,7 +132,7 @@ func (s *Session) readLoop() {
 			}
 
 			// Write to stdout
-			os.Stdout.Write(message)
+			_, _ = os.Stdout.Write(message)
 		}
 	}
 }
@@ -183,28 +180,13 @@ func (s *Session) sendSize() {
 
 	// Send resize message (protocol: 0x04 + width(2) + height(2))
 	msg := []byte{0x04, byte(width >> 8), byte(width), byte(height >> 8), byte(height)}
-	s.conn.WriteMessage(websocket.BinaryMessage, msg)
-}
-
-// handleResize watches for terminal resize signals
-func (s *Session) handleResize() {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGWINCH)
-
-	for {
-		select {
-		case <-s.done:
-			return
-		case <-sigChan:
-			s.sendSize()
-		}
-	}
+	_ = s.conn.WriteMessage(websocket.BinaryMessage, msg)
 }
 
 // restoreTerminal restores the terminal to its original state
 func (s *Session) restoreTerminal() {
 	if s.oldState != nil {
-		term.Restore(int(os.Stdin.Fd()), s.oldState)
+		_ = term.Restore(int(os.Stdin.Fd()), s.oldState)
 	}
 }
 
@@ -221,7 +203,18 @@ func (s *Session) Close() {
 	s.restoreTerminal()
 
 	if s.conn != nil {
-		s.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		_ = s.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		s.conn.Close()
 	}
+}
+
+// setupResizeHandler sets up terminal resize handling (Unix only)
+func (s *Session) setupResizeHandler() {
+	// SIGWINCH is only available on Unix systems
+	if runtime.GOOS == "windows" {
+		return
+	}
+
+	// Use a goroutine to handle resize signals on Unix
+	go s.handleResizeUnix()
 }
