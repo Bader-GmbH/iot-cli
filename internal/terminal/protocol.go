@@ -166,7 +166,7 @@ func BuildMessage(messageType string, payloadType int, payload []byte, sequenceN
 	offset += 8
 
 	// Message ID (16 bytes UUID)
-	rand.Read(buf[offset : offset+MessageIDLength])
+	_, _ = rand.Read(buf[offset : offset+MessageIDLength])
 	offset += MessageIDLength
 
 	// Payload digest (32 bytes SHA-256)
