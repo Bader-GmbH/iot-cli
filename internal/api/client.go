@@ -68,6 +68,24 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 	return resp, nil
 }
 
+// GetCredentials returns the access token and tenant ID for WebSocket auth
+func (c *Client) GetCredentials() (accessToken, tenantID string, err error) {
+	accessToken, err = c.tokenStore.GetAccessToken()
+	if err != nil {
+		return "", "", err
+	}
+	tenantID, err = c.tokenStore.GetTenantID()
+	if err != nil {
+		return "", "", err
+	}
+	return accessToken, tenantID, nil
+}
+
+// GetBaseURL returns the API base URL
+func (c *Client) GetBaseURL() string {
+	return c.baseURL
+}
+
 // Get performs an authenticated GET request
 func (c *Client) Get(ctx context.Context, path string, result interface{}) error {
 	resp, err := c.doRequest(ctx, "GET", path, nil)
