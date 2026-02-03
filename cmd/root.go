@@ -46,11 +46,11 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Verbose output for debugging")
 
-	// Bind flags to viper
-	viper.BindPFlag("output.json", rootCmd.PersistentFlags().Lookup("json"))
-	viper.BindPFlag("output.yaml", rootCmd.PersistentFlags().Lookup("yaml"))
-	viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
-	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	// Bind flags to viper (errors only occur if flag doesn't exist, which is a programmer error)
+	_ = viper.BindPFlag("output.json", rootCmd.PersistentFlags().Lookup("json"))
+	_ = viper.BindPFlag("output.yaml", rootCmd.PersistentFlags().Lookup("yaml"))
+	_ = viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
+	_ = viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 }
 
 func initConfig() {
