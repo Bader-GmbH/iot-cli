@@ -68,7 +68,7 @@ func runSSH(cmd *cobra.Command, args []string) error {
 	termSession, err := terminal.Connect(ctx, client.GetBaseURL(), session.SessionID, accessToken, tenantID)
 	if err != nil {
 		// Clean up the session on error
-		client.CloseTerminalSession(ctx, session.SessionID)
+		_ = client.CloseTerminalSession(ctx, session.SessionID)
 		return fmt.Errorf("failed to connect: %w", err)
 	}
 
@@ -82,7 +82,7 @@ func runSSH(cmd *cobra.Command, args []string) error {
 	}
 
 	// Clean up
-	client.CloseTerminalSession(ctx, session.SessionID)
+	_ = client.CloseTerminalSession(ctx, session.SessionID)
 
 	if !IsQuiet() {
 		fmt.Fprintf(os.Stderr, "\nConnection closed.\n")
