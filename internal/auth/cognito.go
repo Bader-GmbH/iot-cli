@@ -12,9 +12,9 @@ import (
 
 // CognitoConfig holds the Cognito configuration
 type CognitoConfig struct {
-	Region       string
-	UserPoolID   string
-	ClientID     string
+	Region     string
+	UserPoolID string
+	ClientID   string
 }
 
 // DefaultCognitoConfig returns the default Cognito configuration
@@ -36,8 +36,8 @@ type AuthResult struct {
 
 // CognitoClient wraps the Cognito Identity Provider client
 type CognitoClient struct {
-	client   *cognitoidentityprovider.Client
-	config   CognitoConfig
+	client *cognitoidentityprovider.Client
+	config CognitoConfig
 }
 
 // NewCognitoClient creates a new Cognito client

@@ -183,4 +183,3 @@ func (c *Client) CheckDeviceOnline(ctx context.Context, deviceID string) error {
 
 	return nil
 }
-

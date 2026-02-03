@@ -6,11 +6,11 @@ import (
 
 func TestParseRemotePath(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
+		name       string
+		input      string
 		wantDevice string
 		wantPath   string
-		wantErr   bool
+		wantErr    bool
 	}{
 		{
 			name:       "simple path",

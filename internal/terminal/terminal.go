@@ -21,6 +21,7 @@ type Session struct {
 	sessionID string
 	done      chan struct{}
 	oldState  *term.State
+	seqNum    int64
 }
 
 // Connect establishes a WebSocket connection to the terminal session
@@ -131,8 +132,21 @@ func (s *Session) readLoop() {
 				return
 			}
 
-			// Write to stdout
-			_, _ = os.Stdout.Write(message)
+			// Parse b-agent protocol message
+			msg, err := ParseMessage(message)
+			if err != nil || msg.PayloadLength == 0 {
+				continue
+			}
+
+			// Handle different message types
+			if msg.IsOutput() {
+				// Write terminal output to stdout
+				_, _ = os.Stdout.Write(msg.Payload)
+			} else if msg.IsExitCode() {
+				// Session ending, close gracefully
+				return
+			}
+			// Ignore other message types (handshake, etc.)
 		}
 	}
 }
@@ -156,7 +170,10 @@ func (s *Session) writeLoop() {
 			}
 
 			if n > 0 {
-				err := s.conn.WriteMessage(websocket.BinaryMessage, buf[:n])
+				// Wrap input in b-agent protocol message
+				s.seqNum++
+				msg := BuildInputMessage(buf[:n], s.seqNum)
+				err := s.conn.WriteMessage(websocket.BinaryMessage, msg)
 				if err != nil {
 					s.Close()
 					return
@@ -178,8 +195,9 @@ func (s *Session) sendSize() {
 		return
 	}
 
-	// Send resize message (protocol: 0x04 + width(2) + height(2))
-	msg := []byte{0x04, byte(width >> 8), byte(width), byte(height >> 8), byte(height)}
+	// Send resize message wrapped in b-agent protocol
+	s.seqNum++
+	msg := BuildResizeMessage(width, height, s.seqNum)
 	_ = s.conn.WriteMessage(websocket.BinaryMessage, msg)
 }
 

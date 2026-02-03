@@ -26,12 +26,12 @@ const (
 
 // GitHubRelease represents a GitHub release
 type GitHubRelease struct {
-	TagName     string         `json:"tag_name"`
-	Name        string         `json:"name"`
-	PublishedAt time.Time      `json:"published_at"`
-	Body        string         `json:"body"`
-	Assets      []GitHubAsset  `json:"assets"`
-	HTMLURL     string         `json:"html_url"`
+	TagName     string        `json:"tag_name"`
+	Name        string        `json:"name"`
+	PublishedAt time.Time     `json:"published_at"`
+	Body        string        `json:"body"`
+	Assets      []GitHubAsset `json:"assets"`
+	HTMLURL     string        `json:"html_url"`
 }
 
 // GitHubAsset represents a release asset
@@ -43,9 +43,9 @@ type GitHubAsset struct {
 
 // UpdateCache stores the last update check result
 type UpdateCache struct {
-	LastCheck     time.Time `json:"last_check"`
-	LatestVersion string    `json:"latest_version"`
-	CurrentVersion string   `json:"current_version"`
+	LastCheck      time.Time `json:"last_check"`
+	LatestVersion  string    `json:"latest_version"`
+	CurrentVersion string    `json:"current_version"`
 }
 
 // UpdateInfo contains information about an available update

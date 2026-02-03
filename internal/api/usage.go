@@ -6,15 +6,15 @@ import (
 
 // UsageData represents current usage metrics
 type UsageData struct {
-	YearMonth               string `json:"yearMonth"`
-	BytesTransferred        int64  `json:"bytesTransferred"`
+	YearMonth                 string `json:"yearMonth"`
+	BytesTransferred          int64  `json:"bytesTransferred"`
 	BytesTransferredFormatted string `json:"bytesTransferredFormatted"`
 }
 
 // UsageHistoryData represents historical usage for a month
 type UsageHistoryData struct {
-	YearMonth               string `json:"yearMonth"`
-	BytesTransferred        int64  `json:"bytesTransferred"`
+	YearMonth                 string `json:"yearMonth"`
+	BytesTransferred          int64  `json:"bytesTransferred"`
 	BytesTransferredFormatted string `json:"bytesTransferredFormatted"`
 }
 
