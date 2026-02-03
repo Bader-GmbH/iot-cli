@@ -33,6 +33,9 @@ Get started:
 }
 
 func Execute() error {
+	// Check for updates in background after command completes
+	defer CheckForUpdateInBackground()
+
 	return rootCmd.Execute()
 }
 
