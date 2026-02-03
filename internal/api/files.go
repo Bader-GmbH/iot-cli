@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -185,21 +184,3 @@ func (c *Client) CheckDeviceOnline(ctx context.Context, deviceID string) error {
 	return nil
 }
 
-// parseAPIError attempts to parse an API error response
-func parseAPIError(body []byte) string {
-	var errResp struct {
-		Message string `json:"message"`
-		Error   string `json:"error"`
-	}
-
-	if err := json.Unmarshal(body, &errResp); err == nil {
-		if errResp.Message != "" {
-			return errResp.Message
-		}
-		if errResp.Error != "" {
-			return errResp.Error
-		}
-	}
-
-	return string(body)
-}
