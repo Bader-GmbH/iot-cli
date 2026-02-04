@@ -69,7 +69,7 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           COMMIT=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          OUTPUT_NAME="iot-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}"
+          OUTPUT_NAME="iot-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}"
 
           LDFLAGS="-s -w -X github.com/Bader-GmbH/iot-cli/cmd.Version=v${VERSION} -X github.com/Bader-GmbH/iot-cli/cmd.Commit=${COMMIT} -X github.com/Bader-GmbH/iot-cli/cmd.BuildDate=${BUILD_DATE}"
 
@@ -84,10 +84,10 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: iot-${{ matrix.os }}-${{ matrix.arch }}
+          name: iot-cli-${{ matrix.os }}-${{ matrix.arch }}
           path: |
-            iot-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}
-            iot-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}.sha256
+            iot-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}
+            iot-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}.sha256
 
   release:
     name: Release to S3
@@ -129,8 +129,8 @@ jobs:
           mkdir -p release/latest
 
           # Move binaries to release directory (exclude checksums for S3)
-          for dir in artifacts/iot-*; do
-            for file in "$dir"/iot-*; do
+          for dir in artifacts/iot-cli-*; do
+            for file in "$dir"/iot-cli-*; do
               if [[ ! "$file" == *.sha256 ]]; then
                 filename=$(basename "$file")
                 cp "$file" "release/v$VERSION/$filename"
