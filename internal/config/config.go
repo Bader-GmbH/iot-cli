@@ -12,10 +12,10 @@ const (
 
 // Default configuration values
 var Defaults = struct {
-	APIURL       string
-	AuthURL      string
+	APIURL        string
+	AuthURL       string
 	CognitoRegion string
-	ClientID     string
+	ClientID      string
 }{
 	APIURL:        "https://api.iot.bader.solutions",
 	AuthURL:       "https://auth.iot.bader.solutions",
